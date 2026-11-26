@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Conta Truco</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: uma coluna de leitura, resposta no topo, depois comparativo, detalhes e alertas */
+:root {
+  --bg: #F3F5F8;
+  --surface: #FFFFFF;
+  --fg: #172033;
+  --muted: #5B6478;
+  --line: #D9DEE7;
+  --in: #1F5FA8;
+  --in-soft: #DCE8F6;
+  --out: #B85A14;
+  --out-soft: #F6E4D4;
+  --proj: #3E8E7E;
+  --proj-soft: #D7ECE7;
+  --display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --text: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161F; --surface: #1A2130; --fg: #E8ECF3; --muted: #A2ABBD; --line: #2E3747;
+  --in: #7FB0EC; --in-soft: #1D2F48; --out: #F0A266; --out-soft: #3D2A1B; --proj: #7CCBB9; --proj-soft: #183A33;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #11161F; --surface: #1A2130; --fg: #E8ECF3; --muted: #A2ABBD; --line: #2E3747;
+  --in: #7FB0EC; --in-soft: #1D2F48; --out: #F0A266; --out-soft: #3D2A1B; --proj: #7CCBB9; --proj-soft: #183A33;
+  color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--text); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 960px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 40px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(36px, 6vw, 56px); line-height: 1.05; }
+h2 { font-size: 26px; margin-bottom: 6px; }
+h3 { font-size: 18px; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.sub { color: var(--muted); max-width: 65ch; margin-top: 10px; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+section > .sub:first-of-type { margin-top: 0; margin-bottom: 18px; }
+
+/* Resposta */
+.answer { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px; display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; }
+.answer .big { font-family: var(--display); font-size: clamp(40px, 8vw, 68px); font-weight: 700; color: var(--proj); line-height: 1; }
+.answer .formula { display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.answer .formula div { display: flex; justify-content: space-between; gap: 24px; }
+.answer .formula .tot { border-top: 2px solid var(--fg); padding-top: 6px; font-weight: 700; }
+@media (max-width: 640px) { .answer { grid-template-columns: 1fr; } }
+
+/* Comparativo */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.tile .k { font-size: 13px; font-weight: 600; color: var(--muted); }
+.tile .v { font-family: var(--display); font-size: 30px; font-weight: 700; }
+.tile .n { font-size: 13px; color: var(--muted); }
+.tile.real .v { color: var(--out); }
+.tile.proj .v { color: var(--proj); }
+@media (max-width: 720px) { .tiles { grid-template-columns: 1fr; } }
+
+.tbl { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 520px; }
+th, td { padding: 11px 16px; text-align: right; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; background: var(--bg); }
+tr:last-child td { border-bottom: none; }
+tr.total td { font-weight: 700; background: var(--bg); }
+td.in { color: var(--in); } td.out { color: var(--out); } td.proj { color: var(--proj); font-weight: 600; }
+.neg { color: var(--out); }
+.pos { color: var(--in); }
+tr.projrow td { background: var(--proj-soft); }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--proj-soft); color: var(--proj); margin-left: 6px; vertical-align: 1px; }
+.tag.warn { background: var(--out-soft); color: var(--out); }
+
+/* Gráfico de saldo acumulado */
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.row { display: grid; grid-template-columns: 72px 1fr 1fr 96px; align-items: center; gap: 0; font-size: 14px; }
+.row .m { color: var(--muted); }
+.row .neg-side { display: flex; justify-content: flex-end; border-right: 2px solid var(--fg); height: 22px; align-items: center; }
+.row .pos-side { display: flex; justify-content: flex-start; height: 22px; align-items: center; }
+.bar { height: 16px; border-radius: 3px; }
+.neg-side .bar { background: var(--out); border-radius: 3px 0 0 3px; }
+.pos-side .bar { background: var(--in); border-radius: 0 3px 3px 0; }
+.row.proj .pos-side .bar { background: var(--proj); }
+.row .val { text-align: right; font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+@media (max-width: 520px) { .row { grid-template-columns: 56px 1fr 1fr 84px; font-size: 13px; } }
+
+/* Alertas */
+.notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+.note .v { font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--out); }
+.note p { font-size: 14px; color: var(--muted); }
+@media (max-width: 720px) { .notes { grid-template-columns: 1fr; } }
+
+.foot { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Associação Viking · Livro de Caixa 2026 · posição em 25/11/2026</p>
+  <h1>Conta Truco</h1>
+  <p class="sub">Saldo em caixa considerando só o que o Truco movimentou em 2026 (sem saldo do ano anterior), comparando o que já foi realizado com o que ainda vai entrar em novembro.</p>
+</header>
+
+<section class="answer" aria-label="Saldo projetado">
+  <div>
+    <p class="eyebrow">Saldo em caixa com a projeção</p>
+    <p class="big num">R$ 1.947,48</p>
+    <p class="sub">Hoje a conta está negativa em R$ 3.503,52. Com os R$ 5.451,00 que entram em novembro, ela fica positiva.</p>
+  </div>
+  <div class="formula num">
+    <div><span>Entradas realizadas</span><span>23.199,40</span></div>
+    <div><span>(−) Saídas realizadas</span><span>26.702,92</span></div>
+    <div><span>(=) Saldo realizado</span><span class="neg">−3.503,52</span></div>
+    <div><span>(+) A receber em novembro</span><span>5.451,00</span></div>
+    <div class="tot"><span>(=) Saldo projetado</span><span>1.947,48</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Realizado x Projetado</h2>
+  <p class="sub">O realizado é o que já está no livro de caixa. O projetado soma o valor que ainda vai entrar.</p>
+  <div class="tiles">
+    <div class="tile real"><p class="k">Realizado até 25/11</p><p class="v num">−3.503,52</p><p class="n">Saiu mais do que entrou</p></div>
+    <div class="tile"><p class="k">A receber em novembro</p><p class="v num">+5.451,00</p><p class="n">Valor informado, ainda não lançado</p></div>
+    <div class="tile proj"><p class="k">Projetado</p><p class="v num">+1.947,48</p><p class="n">Saldo esperado em caixa</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="tbl">
+    <table>
+      <thead><tr><th></th><th>Realizado</th><th>A receber</th><th>Projetado</th></tr></thead>
+      <tbody>
+        <tr><td>Entradas</td><td class="num in">23.199,40</td><td class="num proj">5.451,00</td><td class="num in">28.650,40</td></tr>
+        <tr><td>Saídas</td><td class="num out">26.702,92</td><td class="num">—</td><td class="num out">26.702,92</td></tr>
+        <tr class="total"><td>Saldo</td><td class="num neg">−3.503,52</td><td class="num">+5.451,00</td><td class="num pos">1.947,48</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Saldo acumulado mês a mês</h2>
+  <p class="sub">Começando do zero em janeiro. O saldo subiu até agosto e ficou negativo em setembro, mês de saídas altas e sem fechamento lançado.</p>
+  <div class="chart" role="img" aria-label="Saldo acumulado: positivo até agosto com pico de 9.626,18, negativo de setembro a novembro, chegando a −3.503,52, e projetado em 1.947,48 após a entrada de novembro">
+    <div class="row"><span class="m">Fev</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:0.8%"></span></span><span class="val">79,00</span></div>
+    <div class="row"><span class="m">Mar</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:6.5%"></span></span><span class="val">625,00</span></div>
+    <div class="row"><span class="m">Abr</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:36.6%"></span></span><span class="val">3.523,00</span></div>
+    <div class="row"><span class="m">Mai</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:76.7%"></span></span><span class="val">7.387,00</span></div>
+    <div class="row"><span class="m">Jun</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:76.4%"></span></span><span class="val">7.351,90</span></div>
+    <div class="row"><span class="m">Jul</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:67.3%"></span></span><span class="val">6.480,68</span></div>
+    <div class="row"><span class="m">Ago</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:100%"></span></span><span class="val">9.626,18</span></div>
+    <div class="row"><span class="m">Set</span><span class="neg-side"><span class="bar" style="width:34.4%"></span></span><span class="pos-side"></span><span class="val neg">−3.308,92</span></div>
+    <div class="row"><span class="m">Out</span><span class="neg-side"><span class="bar" style="width:8.6%"></span></span><span class="pos-side"></span><span class="val neg">−824,92</span></div>
+    <div class="row"><span class="m">Nov</span><span class="neg-side"><span class="bar" style="width:36.4%"></span></span><span class="pos-side"></span><span class="val neg">−3.503,52</span></div>
+    <div class="row proj"><span class="m">Nov proj.</span><span class="neg-side"></span><span class="pos-side"><span class="bar" style="width:20.2%"></span></span><span class="val pos">1.947,48</span></div>
+    <div class="legend"><span style="--c: var(--in)">Positivo</span><span style="--c: var(--out)">Negativo</span><span style="--c: var(--proj)">Projetado com os 5.451,00</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Movimento por mês</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Mês</th><th>Entradas</th><th>Saídas</th><th>Resultado do mês</th><th>Saldo acumulado</th></tr></thead>
+      <tbody>
+        <tr><td>Fev</td><td class="num in">79,00</td><td class="num">—</td><td class="num">79,00</td><td class="num">79,00</td></tr>
+        <tr><td>Mar</td><td class="num in">4.266,00</td><td class="num out">3.720,00</td><td class="num">546,00</td><td class="num">625,00</td></tr>
+        <tr><td>Abr</td><td class="num in">2.898,00</td><td class="num">—</td><td class="num">2.898,00</td><td class="num">3.523,00</td></tr>
+        <tr><td>Mai</td><td class="num in">3.864,00</td><td class="num">—</td><td class="num">3.864,00</td><td class="num">7.387,00</td></tr>
+        <tr><td>Jun</td><td class="num in">3.564,90</td><td class="num out">3.600,00</td><td class="num neg">−35,10</td><td class="num">7.351,90</td></tr>
+        <tr><td>Jul</td><td class="num in">2.415,00</td><td class="num out">3.286,22</td><td class="num neg">−871,22</td><td class="num">6.480,68</td></tr>
+        <tr><td>Ago</td><td class="num in">3.145,50</td><td class="num">—</td><td class="num">3.145,50</td><td class="num">9.626,18</td></tr>
+        <tr><td>Set <span class="tag warn">sem fechamento</span></td><td class="num">—</td><td class="num out">12.935,10</td><td class="num neg">−12.935,10</td><td class="num neg">−3.308,92</td></tr>
+        <tr><td>Out</td><td class="num in">2.484,00</td><td class="num">—</td><td class="num">2.484,00</td><td class="num neg">−824,92</td></tr>
+        <tr><td>Nov (realizado)</td><td class="num in">483,00</td><td class="num out">3.161,60</td><td class="num neg">−2.678,60</td><td class="num neg">−3.503,52</td></tr>
+        <tr class="projrow"><td>Nov <span class="tag">a receber</span></td><td class="num proj">5.451,00</td><td class="num">—</td><td class="num proj">5.451,00</td><td class="num proj">1.947,48</td></tr>
+        <tr class="total"><td>Total</td><td class="num">28.650,40</td><td class="num">26.702,92</td><td class="num">1.947,48</td><td class="num">1.947,48</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>De onde veio e para onde foi</h2>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Origem / destino</th><th>Lançamentos</th><th>Valor</th><th>% do grupo</th></tr></thead>
+      <tbody>
+        <tr><td>Fechamentos mensais do Truco</td><td class="num">7</td><td class="num in">22.282,40</td><td class="num">96,0%</td></tr>
+        <tr><td>Pagamentos avulsos de participantes</td><td class="num">7</td><td class="num in">917,00</td><td class="num">4,0%</td></tr>
+        <tr class="total"><td>Entradas realizadas</td><td class="num">14</td><td class="num">23.199,40</td><td class="num">100%</td></tr>
+        <tr><td>GR Restaurante</td><td class="num">6</td><td class="num out">26.496,70</td><td class="num">99,2%</td></tr>
+        <tr><td>Pagamento a prestador (doc. 63)</td><td class="num">1</td><td class="num out">150,00</td><td class="num">0,6%</td></tr>
+        <tr><td>Mercado Livre – sacolas</td><td class="num">1</td><td class="num out">56,22</td><td class="num">0,2%</td></tr>
+        <tr class="total"><td>Saídas realizadas</td><td class="num">8</td><td class="num">26.702,92</td><td class="num">100%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Pontos de atenção</h2>
+  <p class="sub">O saldo projetado é apertado, então estes itens fazem diferença.</p>
+  <div class="notes">
+    <div class="note"><p class="v num">10.153,10</p><h3>Conta alta em setembro</h3><p>Pagamento ao GR Restaurante em 03/09, cerca de 3 vezes uma conta normal (2,6 a 3,7 mil). Vale conferir quais períodos ele cobre.</p></div>
+    <div class="note"><p class="v">Setembro</p><h3>Fechamento não lançado</h3><p>Não aparece "TRUCO / 09/2026". Se esse valor ainda for entrar, o saldo sobe cerca de R$ 3,2 mil (média dos fechamentos).</p></div>
+    <div class="note"><p class="v num">−1.321,24</p><h3>Se vier conta em dezembro</h3><p>Uma conta do restaurante no valor médio (R$ 3.268,72) deixaria a conta negativa, a menos que entre o fechamento de dezembro.</p></div>
+  </div>
+</section>
+
+<p class="foot">Fonte: Livro de Caixa da Associação Viking, contas 1.12.27 Adiantamento Truco e 2.7.25 Truco, período 01/01 a 31/12/2026, emitido em 25/11/2026. O saldo anterior de R$ 14.702,32 foi desconsiderado a pedido. O valor de R$ 5.451,00 a receber foi informado e ainda não está no livro. Cenário de dezembro é estimativa: média das 5 contas do restaurante sem a de setembro.</p>
+
+</div>
+
+</body>
+</html>
